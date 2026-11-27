@@ -115,7 +115,7 @@ const can=p=>st(p)[1]!='no',band=n=>n===''||n==null?null:n==0?0:n<=6?1:n<=12?2:3
 const prices=p=>(p.pl?`<div class="price">${$$(p.pl)}<small>con tarjeta</small></div>`:'')+(p.pt?`<div class="pt">${$$(p.pt)}<small>transferencia / efectivo</small></div>`:'');
 function apply(){$('sn').textContent=set.name||'PUFF HOUSE';$('ht').textContent=set.ht||DEF.ht;$('hp').textContent=set.hp||DEF.hp;const h=$('hero');h.style.backgroundImage=set.hero?`linear-gradient(90deg,#15191dcc,#15191d66),url("${set.hero}")`:'';h.classList.toggle('ph',!!set.hero);const L=t=>t.split('\n').filter(x=>x.trim()).map(x=>`<li>${esc(x)}</li>`).join('');$('ship').innerHTML=L(set.ship||DEF.ship);$('pay').innerHTML=L(set.pay||DEF.pay);$('vf').textContent=set.vf||DEF.vf;const hv=$('hv'),vs=set.hv??'video.mp4';if(!vs)hv.style.display='none';else if(hv.getAttribute('src')!==vs){hv.onloadeddata=()=>hv.style.display='block';hv.onerror=()=>hv.style.display='none';hv.src=vs}$('fsn').textContent=$('fsn2').textContent=set.name||'PUFF HOUSE';$('fy').textContent=new Date().getFullYear();const ig=(set.ig||'').replace('@','');$('fc').innerHTML=[set.wa&&`<a href="https://wa.me/${set.wa}" target="_blank" rel="noopener">WhatsApp ${esc(set.wa)}</a>`,ig&&`<a href="https://instagram.com/${esc(ig)}" target="_blank" rel="noopener">Instagram @${esc(ig)}</a>`,set.dir&&`<span class="fi">${esc(set.dir)}</span>`,set.hor&&`<span class="fi">${esc(set.hor)}</span>`].filter(Boolean).join('')||'<span class="fi" style="color:#8b9298">Cargá tus datos en Administrar.</span>';
  $('ce').innerHTML='<option value="">Entrega</option>'+(set.ship||DEF.ship).split('\n').filter(x=>x.trim()).map(x=>`<option>${esc(x)}</option>`).join('');$('cp').innerHTML='<option value="">Pago</option>'+(set.pay||DEF.pay).split('\n').filter(x=>x.trim()).map(x=>`<option>${esc(x)}</option>`).join('')}
-async function adminLogin(){if(!cloud)return adminLocal();if(auth.currentUser)return view(1);const e=prompt('Email de administración'),v=e&&prompt('Contraseña');if(!v)return;try{await auth.signInWithEmailAndPassword(e.trim(),v);view(1)}catch{toast('Email o contraseña incorrectos')}}
+async function adminLogin(){if(!cloud)return adminLocal();if(isAdmin())return view(1);const e=prompt('Email de administración'),v=e&&prompt('Contraseña');if(!v)return;try{await auth.signInWithEmailAndPassword(e.trim(),v);if(isAdmin())view(1);else{await auth.signOut();toast('Esa cuenta no es de administración')}}catch{toast('Email o contraseña incorrectos')}}
 function pushSet(){cloud&&db.doc('config/store').set(set).catch(()=>toast('No se pudo guardar la configuración en la nube'))}
 async function pushAll(){try{for(let i=0;i<P.length;i+=20){const b=db.batch();P.slice(i,i+20).forEach(p=>b.set(db.collection('products').doc(p.id),p));await b.commit()}pushSet()}catch{toast('No se pudo subir todo a la nube')}}
 function adminLocal(){const v=prompt('Contraseña de administración');if(v===null)return;if(btoa(v)==='ZWxwZWxhMTIz')view(1);else toast('Contraseña incorrecta')}
@@ -171,6 +171,35 @@ const FB={apiKey:'AIzaSyAjqHwE6QUDLezEyVmHCZ1Di_0TMEgDmrg',authDomain:'puff-hous
 const cloud=!!FB.apiKey&&typeof firebase!=='undefined';let db,auth;
 if(cloud){firebase.initializeApp(FB);db=firebase.firestore();auth=firebase.auth();$('pubhint').textContent='Tu catálogo se guarda solo en la nube. Exportar sirve como copia de seguridad.';
  Promise.all([db.collection('products').get(),db.doc('config/store').get()]).then(([q,c])=>{P=q.docs.map(d=>d.data()).sort((a,b)=>String(b.id).localeCompare(String(a.id)));if(c.exists)set={...set,...c.data()};apply();render();adm()}).catch(()=>toast('No se pudo cargar el catálogo'))}
-apply();render();adm();drawCart();addSec();
+document.querySelector('.nav').insertAdjacentHTML('afterbegin','<button class="s" id="ub" onclick="userBtn()">Ingresar</button>');
+const ADMIN_EMAIL='thiagopaz2198@gmail.com';
+const isAdmin=()=>cloud&&auth.currentUser&&auth.currentUser.email===ADMIN_EMAIL;
+const AE={'auth/invalid-email':'El email no es válido.','auth/email-already-in-use':'Ese email ya tiene una cuenta.','auth/weak-password':'La contraseña es muy corta (mínimo 6).','auth/invalid-credential':'Email o contraseña incorrectos.','auth/wrong-password':'Email o contraseña incorrectos.','auth/user-not-found':'Email o contraseña incorrectos.','auth/too-many-requests':'Demasiados intentos. Probá más tarde.','auth/network-request-failed':'Sin conexión.'};
+const aerr=e=>$('am').textContent=AE[e.code]||'No se pudo completar. Probá de nuevo.';
+function userBtn(){
+ if(!cloud){toast('Las cuentas no están disponibles ahora');return}
+ const u=auth.currentUser;
+ if(u)$('dc').innerHTML=`<h2 style="margin:6px 0 12px">Mi cuenta</h2><p>${esc(u.displayName||'')}<br><span class="muted">${esc(u.email)}</span></p><button class="s" onclick="logout()">Cerrar sesión</button>`;
+ else authForm('in');
+ $('dm').classList.add('show');
+}
+function authForm(m){
+ const reg=m=='up';
+ $('dc').innerHTML=`<h2 style="margin:6px 0 12px">${reg?'Crear cuenta':'Ingresar'}</h2>
+ ${reg?'<div class="field"><label>Nombre</label><input id="an" autocomplete="name"></div>':''}
+ <div class="field"><label>Email</label><input id="ae" type="email" autocomplete="email"></div>
+ <div class="field"><label>Contraseña</label><input id="ap" type="password" autocomplete="${reg?'new-password':'current-password'}" placeholder="${reg?'Mínimo 6 caracteres':''}"></div>
+ <p id="am" style="color:#b42318;min-height:20px;margin:6px 0"></p>
+ <button style="width:100%" onclick="${reg?'doUp()':'doIn()'}">${reg?'Crear cuenta':'Ingresar'}</button>
+ <p style="text-align:center;margin:12px 0 0"><a href="#" onclick="authForm('${reg?'in':'up'}');return false">${reg?'Ya tengo cuenta':'No tengo cuenta, crear una'}</a></p>
+ ${reg?'':'<p style="text-align:center;margin:8px 0 0"><a href="#" onclick="doReset();return false">Olvidé mi contraseña</a></p>'}`;
+}
+async function doIn(){try{await auth.signInWithEmailAndPassword($('ae').value.trim(),$('ap').value);$('dm').classList.remove('show');toast('Sesión iniciada')}catch(e){aerr(e)}}
+async function doUp(){const n=$('an').value.trim();if(!n){$('am').textContent='Ingresá tu nombre.';return}try{const c=await auth.createUserWithEmailAndPassword($('ae').value.trim(),$('ap').value);await c.user.updateProfile({displayName:n});authUI();$('dm').classList.remove('show');toast('Cuenta creada')}catch(e){aerr(e)}}
+async function doReset(){const e=$('ae').value.trim();if(!e){$('am').textContent='Escribí tu email arriba primero.';return}try{await auth.sendPasswordResetEmail(e);$('am').style.color='#1f7a4d';$('am').textContent='Te enviamos un email para restablecerla.'}catch(x){aerr(x)}}
+function logout(){auth.signOut();$('dm').classList.remove('show');toast('Sesión cerrada')}
+function authUI(){const u=cloud&&auth.currentUser;$('ub').textContent=u?('Hola, '+((u.displayName||u.email).split(' ')[0])):'Ingresar';if(u&&!$('cn').value)$('cn').value=u.displayName||''}
+if(cloud)auth.onAuthStateChanged(authUI);
+ apply();render();adm();drawCart();addSec();
 if(!cloud&&localStorage.getItem(K)===null)fetch('catalogo.json',{cache:'no-cache'}).then(r=>r.ok?r.json():Promise.reject()).then(d=>{if(!Array.isArray(d.P))return;P=d.P;set={...set,...(d.set||{})};apply();render();adm()}).catch(()=>{});
 </script></body></html>
